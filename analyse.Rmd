@@ -1,0 +1,202 @@
+---
+title: "projet_modele_lineaire"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+##Chargement du fichier
+```{r}
+setwd("C:/Users/arthu/Desktop/Projet_modele_lineaire")
+library(readxl)
+insertion <- read_excel("C:/Users/arthu/Desktop/Projet_modele_lineaire/sa_msule.xlsx")
+##View(insertion)
+dim(insertion)
+colonne=colnames(insertion)
+ligne= rownames(insertion)
+print(summary(insertion))
+
+insertion<-na.omit(insertion)
+##Supprimme ici toutes les lignes ou il manque des informations, sans quoi cela provoque des erreurs plus loin dans le travail
+```
+
+Nous faisons ici des comparaisons de variable deux à deux, avant de faire un quelqu'onque travail dessus
+Cela permet de nous donner un premier aperçu des tendances
+
+```{r}
+pairs(~insertion$taux_diertion+insertion$emplois_stables+insertion$taux_de_chomage_regional)
+```
+
+Il semble y avoir un très bon lien entre le taux d'insertion et le taux d'emploi stable
+
+```{r}
+print(cor.test (insertion$emplois_stables,insertion$taux_diertion, method = "pearson"))
+```
+
+Le lien est confirmer, avec une corrélation positive = 0.6939
+
+```{r}
+pairs(~insertion$taux_diertion+insertion$salaire_net_median_des_emplois_a_temps_plein+insertion$emplois_stables)
+```
+
+De même pour le salaire median des emplois a temps plein et le taux d'emploi stable
+
+```{r}
+print(cor.test (insertion$salaire_net_median_des_emplois_a_temps_plein,insertion$emplois_stables, method = "pearson"))
+```
+
+Le lien est confirmé grâce à un calcul du coefficient de corrélation démontrant une corrélation positive = 0.628
+
+```{r}
+pairs(~insertion$taux_diertion + insertion$salaire_brut_annuel_estime + insertion$emplois_a_temps_plein )
+```
+```{r}
+print(cor.test ( insertion$salaire_brut_annuel_estime , insertion$emplois_a_temps_plein, method = "pearson"))
+```
+
+Correlation positive égale à 0.589 entre le salaire brut annuel estime et le taux d'emploi à temps plein
+
+```{r}
+pairs(~ insertion$taux_diertion + insertion$de_diplomes_boursiers + insertion$salaire_net_meuel_median_regional)
+```
+```{r}
+print(cor.test (insertion$de_diplomes_boursiers, insertion$salaire_net_meuel_median_regional, method = "pearson"))
+```
+
+Corrélation négative = -0.625 entre le taux de diplômés boursiers et le salaire net mensuel median regional
+
+```{r}
+print(cor.test (insertion$taux_diertion, insertion$de_diplomes_boursiers, method = "pearson"))
+```
+
+Aucune corrélation entre le taux de diplômés boursiers et le taux d'insertion
+##faire encore d'autre comparaison (test de corrélation) notamment avec le taux d'insertion
+
+Maintenant que nous avons fait toutes les comparaisons que nous souhaitions faire nous allons pouvoir faire la régression linéaire multiple
+
+```{r}
+modele = lm(insertion$MASTER  ~ insertion$emplois_stables + insertion$taux_diertion+ insertion$emplois_cadre_ou_professio_intermediaires+ insertion$emplois_a_temps_plein+ insertion$salaire_net_median_des_emplois_a_temps_plein+ + insertion$de_diplomes_boursiers,data=insertion)
+print(modele)
+```
+
+```{r}
+sr=summary(modele)
+print(sr)
+```
+
+Modèle significatif car p.value < ? 0.05
+emplois_stables,taux_d'insertion,emplois_cadre_ou_professio_intermediaires,emplois_a_temps_plein, salaire_net_median_des_emplois_a_temps_plein sont significatives
+
+On affiche maintenant les coefficients de cette régression
+
+```{r}
+mat=sr$coefficients
+print(mat)
+```
+
+On calcule les écarts-types des coefficients estimés
+
+```{r}
+sd(mat,na.rm = TRUE)
+print(sd(mat))
+```
+
+On peut à présent calculer pour chaque coefficients son intervalle de confiance
+
+```{r}
+a=mat[,1]
+sigma=mat[,2]
+print(mat[,2])
+```
+Les bornes basses :
+
+```{r}
+bb=a-qt(0.975,20)*sigma
+print(bb)
+```
+
+Les bornes Hautes:
+
+```{r}
+bh=a+qt(0.975,20)*sigma
+print(bh)
+```
+
+On analyse les résidus
+
+```{r}
+res=sr$residuals
+##print(res)
+```
+
+##Ici on choisi de ne pas afficher les résidus pour ne pas surcharger l'ordinateur par la taille de la variable
+
+```{r}
+mean(res)
+print(mean(res))
+```
+
+Puis on construit le nuage de point des résidus
+##Je crois pas que ce soit utile ce nuage de point
+```{r}
+plot(res)
+```
+
+On construit le nuage de point en croisant la variable des masters avec les résidus 
+
+```{r}
+plot(x=insertion$MASTER, y=res)
+```
+
+##Une valeur abberantes est visible pour les masters ENS, quelques points se détachent des masters LMD mais pas assez pour être considéré comme abberantes ??
+
+```{r}
+plot(x=insertion$taux_diertion, y=res)
+```
+
+##Ce graphique n'est pas utile pour nous, a voir si on le met quand meme, on voit mieux des points abberants
+
+A présent, on réalise la droite de Henry afin de vérifier la compatibilité des résidus avec l'hypothèse de normalité 
+
+```{r}
+qqnorm(res)
+```
+
+On calcul dans un premier temps le coefficient d'asymétire -> g1
+puis le coefficient d'aplatissement -> g2
+```{r}
+g1=((1/24)*sum(res^3))/((1/24)*sum(res^2))^(3/2)
+g2=((1/24)*sum(res^4))/((1/24)*sum(res^2))^(4/2)-3
+print(g1)
+print(g2)
+```
+
+Ce qui nous permet de faire la statistique de Jarque-Bera, afin de savoir si les résidus sont compatible avec l'hypothèse de normalité
+
+```{r}
+T=((24-3-1)/6)*(g1^2+(g2^2/4))
+pval=1-pchisq(T,2)
+print(pval)
+```
+
+##☺Faire une conclusion avec ça
+
+```{r}
+resstu=rstudent(modele)
+##print(resstu)
+```
+
+##Même chose ici, on ne l'affiche pas pour ne pas surcharger inutilement en affichage
+
+```{r}
+plot(resstu)
+##inutile ce graphique...je crois
+```
+
